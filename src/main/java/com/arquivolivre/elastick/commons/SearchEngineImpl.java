@@ -27,18 +27,8 @@ import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.inject.Injector;
-import org.elasticsearch.common.inject.ModulesBuilder;
 import static org.elasticsearch.common.settings.ImmutableSettings.settingsBuilder;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.SettingsModule;
-import org.elasticsearch.env.Environment;
-import org.elasticsearch.env.EnvironmentModule;
-import org.elasticsearch.index.IndexNameModule;
-import org.elasticsearch.index.analysis.AnalysisModule;
-import org.elasticsearch.index.settings.IndexSettingsModule;
-import org.elasticsearch.indices.analysis.IndicesAnalysisModule;
-import org.elasticsearch.indices.analysis.IndicesAnalysisService;
 
 /**
  *
@@ -244,17 +234,12 @@ public class SearchEngineImpl implements SearchEngine {
         try {
             String index = (String) annotation.annotationType().getMethod("name").invoke(annotation);
             Settings settings = settingsBuilder().loadFromSource(generateSettings(obj)).build();
-            org.elasticsearch.index.Index idx = new org.elasticsearch.index.Index(index);
-            Injector parentInjector = new ModulesBuilder().add(
-                    new SettingsModule(settings),
-                    new EnvironmentModule(new Environment(settings)),
-                    new IndicesAnalysisModule())
-                    .createInjector();
-            Injector injector = new ModulesBuilder().add(
-                    new IndexSettingsModule(idx, settings),
-                    new IndexNameModule(idx),
-                    new AnalysisModule(settings, parentInjector.getInstance(IndicesAnalysisService.class)))
-                    .createChildInjector(parentInjector);
+            logger.info("closing index " + index);
+            client.admin().indices().prepareClose(index).execute().actionGet();
+            logger.info("updating index " + index + " settings");
+            client.admin().indices().prepareUpdateSettings().setSettings(settings).setIndices(index).execute().actionGet();
+            logger.info("opening index " + index);
+            client.admin().indices().prepareOpen(index).execute().actionGet();
         } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
             java.util.logging.Logger.getLogger(SearchEngineImpl.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -264,14 +249,13 @@ public class SearchEngineImpl implements SearchEngine {
         Index annotation = obj.getClass().getAnnotation(Index.class);
 
         String[] synonyms = (String[]) annotation.annotationType().getMethod("synonyms").invoke(annotation);
+        Map<String, Object> analysis = new TreeMap<>();
         if (synonyms.length > 0 && !synonyms[0].equals("")) {
             Map<String, Object> synonym = new TreeMap<>();
             Map<String, Object> filterField = new TreeMap<>();
             Map<String, Object> analyzerType = new TreeMap<>();
             Map<String, Object> analyzerOptions = new TreeMap<>();
-            Map<String, Object> analysis = new TreeMap<>();
             Map<String, Object> opt = new TreeMap<>();
-            Map<String, Object> idx = new TreeMap<>();
             analyzerOptions.put("filter", new String[]{"synonym"});
             //TODO: aqui deve ser o nome, creio que sera necessario uma maneira pratica de dar esse nome ao analyzer
             analyzerType.put("synonymAnalyzer", analyzerOptions);
@@ -281,9 +265,8 @@ public class SearchEngineImpl implements SearchEngine {
             opt.put("analyzer", analyzerType);
             opt.put("filter", filterField);
             analysis.put("analysis", opt);
-            idx.put("index", analysis);
         }
-        return new Gson().toJson(null);
+        return new Gson().toJson(analysis);
     }
 
 }
