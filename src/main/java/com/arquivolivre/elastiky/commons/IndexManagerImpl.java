@@ -160,6 +160,7 @@ public class IndexManagerImpl implements IndexManager {
             properties.put("properties", getFields(obj.getClass(), false));
         } catch (SecurityException | IllegalArgumentException | IllegalAccessException ex) {
             logger.error("Error while parsing mapping.", ex);
+            return null;
         }
         return new Gson().toJson(typeMap);
     }
