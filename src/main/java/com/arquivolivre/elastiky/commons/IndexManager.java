@@ -53,9 +53,10 @@ public interface IndexManager {
      * cria o indice no elasticsearch com o dado nome.
      *
      * @param index nome do indice a ser criado
+     * @param type tipo
      * @param source
      */
-    void createIndex(String index, Object source);
+    void createIndex(String index, String type, Object source);
 
     /**
      *

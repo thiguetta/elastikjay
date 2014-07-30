@@ -18,7 +18,9 @@ import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.TreeMap;
 import org.apache.log4j.Logger;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
+import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -60,7 +62,7 @@ public class IndexManagerImpl implements IndexManager {
             if (!json.isEmpty()) {
                 IndexInfo indexInfo = getIndexInfo(source.getClass());
                 if (!indexExists(indexInfo.getName())) {
-                    createIndex(indexInfo.getName(), source);
+                    createIndex(indexInfo.getName(), indexInfo.getType(), source);
                 }
                 bulkRequest.add(elasticSearchClient.prepareIndex(indexInfo.getName(), indexInfo.getType(), id).setSource(json));
                 logger.info(String.format("Object (id: %s) added to bulk", id));
@@ -90,7 +92,7 @@ public class IndexManagerImpl implements IndexManager {
         GetResponse response = elasticSearchClient.prepareGet(indexInfo.getName(), indexInfo.getType(), id).execute().actionGet();
         if (response.isSourceEmpty()) {
             String msg = String.format("Object (id: %s) of the type %s was not found in index %s!", id, indexInfo.getName(), indexInfo.getType());
-            logger.info(msg);
+            logger.warn(msg);
             return null;
         }
         return new Gson().fromJson(response.getSourceAsString(), clazz);
@@ -103,7 +105,7 @@ public class IndexManagerImpl implements IndexManager {
             String type = (String) annotation.annotationType().getMethod("type").invoke(annotation);
             return new IndexInfo(index, type);
         } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            Logger.getLogger(IndexManagerImpl.class.getName()).error(ex);
+            logger.error("Error on retrieving index information.", ex);
         }
         return null;
     }
@@ -121,22 +123,32 @@ public class IndexManagerImpl implements IndexManager {
 
     @Override
     public boolean indexExists(String index) {
-        IndicesExistsResponse actionGet = elasticSearchClient.admin().indices().exists(new IndicesExistsRequest(index)).actionGet();
-        return actionGet.isExists();
+        IndicesExistsResponse response = elasticSearchClient.admin().indices().exists(new IndicesExistsRequest(index)).actionGet();
+        return response.isExists();
     }
 
     @Override
-    public void createIndex(String index, Object source) {
-        logger.info(String.format("Generating index %s", index));
-        CreateIndexRequest createIndexRequest = new CreateIndexRequest(index);
-        IndexInfo indexInfo = getIndexInfo(source.getClass());
-        String settings = generateSettings(source);
-        if (settings != null) {
-            createIndexRequest.settings(settings);
+    public void createIndex(String indexName, String indexType, Object source) {
+        logger.info(String.format("Generating index %s ...", indexName));
+        CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
+        if (indexType != null) {
+            String settings = generateSettings(source);
+            if (settings != null) {
+                logger.info("Setting up...");
+                createIndexRequest.settings(settings);
+            }
         }
+        logger.info("Mapping...");
         String mapping = generateMapping(source);
-        createIndexRequest.mapping(indexInfo.getType(), mapping);
-        elasticSearchClient.admin().indices().create(createIndexRequest).actionGet();
+        createIndexRequest.mapping(indexType, mapping);
+        try {
+            CreateIndexResponse response = elasticSearchClient.admin().indices().create(createIndexRequest).actionGet();
+            if (response.isAcknowledged()) {
+                logger.info(String.format("Index %s created!", indexName));
+            }
+        } catch (ElasticsearchException ex) {
+            logger.error(String.format("Index %s was not created due some errors.", indexName), ex);
+        }
     }
 
     public String generateMapping(Object obj) {
@@ -147,7 +159,7 @@ public class IndexManagerImpl implements IndexManager {
         try {
             properties.put("properties", getFields(obj.getClass(), false));
         } catch (SecurityException | IllegalArgumentException | IllegalAccessException ex) {
-            Logger.getLogger(IndexManagerImpl.class).error(null, ex);
+            logger.error("Error while parsing mapping.", ex);
         }
         return new Gson().toJson(typeMap);
     }
@@ -193,7 +205,7 @@ public class IndexManagerImpl implements IndexManager {
                     String analyzer = (String) annotation.annotationType().getMethod("value").invoke(annotation);
                     info.put("analyzer", analyzer);
                 } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException ex) {
-                    Logger.getLogger(IndexManagerImpl.class.getName()).error(ex);
+                    logger.error(ex);
                 }
             }
             if (!info.isEmpty()) {
@@ -258,7 +270,7 @@ public class IndexManagerImpl implements IndexManager {
                 return new Gson().toJson(analysis);
             }
         } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            Logger.getLogger(IndexManagerImpl.class).error(null, ex);
+            logger.error("Error while parsing settings.", ex);
         }
         return null;
     }
