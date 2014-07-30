@@ -1,4 +1,4 @@
-package com.arquivolivre.elastick.commons;
+package com.arquivolivre.elastiky.commons;
 
 import org.elasticsearch.action.bulk.BulkResponse;
 
@@ -6,7 +6,7 @@ import org.elasticsearch.action.bulk.BulkResponse;
  *
  * @author Thiago da Silva Gonzaga <thiagosg@sjrp.unesp.br>
  */
-public interface SearchEngine {
+public interface IndexManager {
 
     /**
      * Inicia um novo BulkRequestBuilder caso ainda não exista e adiciona um
@@ -15,15 +15,14 @@ public interface SearchEngine {
      * @param id id unico no indice
      * @param source dado a ser inserido no indice
      */
-    void add(String id, Object source);
+    void addToBulk(String id, Object source);
 
     /**
      * executa a requisicão em massa do BulkRequest criado após a insercão limpa
      * o bulkRequest.
      *
-     * @return retorna objeto Iterable contento as resposta de cada inserçao
      */
-    BulkResponse performAction();
+    void executeBulkAdd();
 
     /**
      * Recupera um objeto do indice a partir do id
@@ -40,7 +39,7 @@ public interface SearchEngine {
      *
      * @param map objeto correspondente ao mapa a ser inserido
      */
-    void putMap(Object map);
+    void putMapping(Object map);
 
     /**
      * verifica se o indice já existe no elasticsearch.
@@ -54,8 +53,14 @@ public interface SearchEngine {
      * cria o indice no elasticsearch com o dado nome.
      *
      * @param index nome do indice a ser criado
+     * @param source
      */
-    void createIndex(String index);
+    void createIndex(String index, Object source);
 
-    void injectSetting(Object obj);
+    /**
+     *
+     * @param source
+     */
+    void updateSettings(Object source);
+
 }
