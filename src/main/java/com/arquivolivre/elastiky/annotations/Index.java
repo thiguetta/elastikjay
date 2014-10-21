@@ -17,5 +17,5 @@ public @interface Index {
 
     String type();
 
-    String[] synonyms() default "";
+    Analysis analysis() default @Analysis("null");
 }

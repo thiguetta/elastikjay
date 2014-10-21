@@ -10,14 +10,19 @@ import java.lang.annotation.Target;
  * @author Thiago da Silva Gonzaga <thiagosg@sjrp.unesp.br>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE})
-public @interface Analyzer {
+@Target(ElementType.TYPE)
+public @interface Filter {
 
-    String value() default "";
+    String name();
 
-    String name() default "";
+    FilterType type() default FilterType.NONE;
 
-    String tokenizer() default "";
+    String stopwords() default "";
 
-    String[] filter() default {};
+    String language() default "";
+
+    String[] keywords() default {};
+
+    String[] synonyms() default {};
+
 }

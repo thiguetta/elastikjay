@@ -11,13 +11,11 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.FIELD, ElementType.TYPE})
-public @interface Analyzer {
+public @interface Analysis {
 
     String value() default "";
 
-    String name() default "";
+    Filter[] filter() default @Filter(name = "null");
 
-    String tokenizer() default "";
-
-    String[] filter() default {};
+    Analyzer analyzer() default @Analyzer(name = "null");
 }

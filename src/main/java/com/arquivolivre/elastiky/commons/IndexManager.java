@@ -1,6 +1,8 @@
 package com.arquivolivre.elastiky.commons;
 
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.Client;
 
 /**
  *
@@ -58,10 +60,16 @@ public interface IndexManager {
      */
     void createIndex(String index, String type, Object source);
 
+    DeleteIndexResponse deleteIndices(String... indices);
+
+    DeleteIndexResponse deleteIndex(String index);
+
     /**
      *
      * @param source
      */
     void updateSettings(Object source);
+
+    Client getElasticSearchClient();
 
 }

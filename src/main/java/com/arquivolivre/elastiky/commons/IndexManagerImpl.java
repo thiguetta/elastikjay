@@ -12,15 +12,20 @@ import com.google.gson.Gson;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.apache.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequest;
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
@@ -35,23 +40,24 @@ import org.elasticsearch.common.settings.Settings;
  * @author Thiago da Silva Gonzaga <thiagosg@sjrp.unesp.br>
  */
 public class IndexManagerImpl implements IndexManager {
-
+    
     private final Client elasticSearchClient;
     private BulkRequestBuilder bulkRequest;
     private final Logger logger = Logger.getLogger(IndexManagerImpl.class);
-
+    
     IndexManagerImpl(Client client) {
         this.elasticSearchClient = client;
     }
-
+    
     public static IndexManagerImpl build(Client client) {
         return new IndexManagerImpl(client);
     }
-
+    
+    @Override
     public Client getElasticSearchClient() {
         return elasticSearchClient;
     }
-
+    
     @Override
     public void addToBulk(String id, Object source) {
         if (bulkRequest == null) {
@@ -71,7 +77,7 @@ public class IndexManagerImpl implements IndexManager {
             logger.warn("Attempting to add an empty object, ignoring...");
         }
     }
-
+    
     @Override
     public void executeBulkAdd() {
         if (bulkRequest != null) {
@@ -85,7 +91,7 @@ public class IndexManagerImpl implements IndexManager {
             bulkRequest = null;
         }
     }
-
+    
     @Override
     public <A> A get(String id, Class<A> clazz) {
         IndexInfo indexInfo = getIndexInfo(clazz);
@@ -97,7 +103,7 @@ public class IndexManagerImpl implements IndexManager {
         }
         return new Gson().fromJson(response.getSourceAsString(), clazz);
     }
-
+    
     private IndexInfo getIndexInfo(Class clazz) {
         try {
             Annotation annotation = clazz.getAnnotation(Index.class);
@@ -109,7 +115,7 @@ public class IndexManagerImpl implements IndexManager {
         }
         return null;
     }
-
+    
     @Override
     public void putMapping(Object o) {
         IndexInfo indexInfo = getIndexInfo(o.getClass());
@@ -120,13 +126,13 @@ public class IndexManagerImpl implements IndexManager {
                 .execute()
                 .actionGet();
     }
-
+    
     @Override
     public boolean indexExists(String index) {
         IndicesExistsResponse response = elasticSearchClient.admin().indices().exists(new IndicesExistsRequest(index)).actionGet();
         return response.isExists();
     }
-
+    
     @Override
     public void createIndex(String indexName, String indexType, Object source) {
         logger.info(String.format("Generating index %s ...", indexName));
@@ -150,7 +156,18 @@ public class IndexManagerImpl implements IndexManager {
             logger.error(String.format("Index %s was not created due some errors.", indexName), ex);
         }
     }
-
+    
+    @Override
+    public DeleteIndexResponse deleteIndices(String... indices) {
+        DeleteIndexRequest request = new DeleteIndexRequest(indices);
+        return elasticSearchClient.admin().indices().delete(request).actionGet();
+    }
+    
+    @Override
+    public DeleteIndexResponse deleteIndex(String index) {
+        return deleteIndices(index);
+    }
+    
     public String generateMapping(Object obj) {
         Map<Object, Object> typeMap = new TreeMap<>();
         Map<Object, Object> properties = new TreeMap<>();
@@ -164,7 +181,7 @@ public class IndexManagerImpl implements IndexManager {
         }
         return new Gson().toJson(typeMap);
     }
-
+    
     private Map getFields(Class clazz, boolean avoidLoop) throws SecurityException, IllegalArgumentException, IllegalAccessException {
         Field[] declaredFields = clazz.getDeclaredFields();
         Map<Object, Object> fields = new TreeMap<>();
@@ -199,7 +216,7 @@ public class IndexManagerImpl implements IndexManager {
             } else if (field.isAnnotationPresent(Nested.class)) {
                 info.put("type", "nested");
             }
-
+            
             if (field.isAnnotationPresent(Analyzer.class)) {
                 try {
                     Analyzer annotation = field.getAnnotation(Analyzer.class);
@@ -212,11 +229,11 @@ public class IndexManagerImpl implements IndexManager {
             if (!info.isEmpty()) {
                 fields.put(field.getName(), info);
             }
-
+            
         }
         return fields;
     }
-
+    
     private Class getInnerType(Field field) {
         Class<?> fieldArgClass = null;
         Type genericType = field.getGenericType();
@@ -229,7 +246,7 @@ public class IndexManagerImpl implements IndexManager {
         }
         return fieldArgClass;
     }
-
+    
     @Override
     public void updateSettings(Object obj) {
         IndexInfo indexInfo = getIndexInfo(obj.getClass());
@@ -242,38 +259,85 @@ public class IndexManagerImpl implements IndexManager {
             elasticSearchClient.admin().indices().prepareUpdateSettings().setSettings(settings).setIndices(indexInfo.getName()).execute().actionGet();
             logger.info(String.format("Opening index %s", indexInfo.getName()));
             elasticSearchClient.admin().indices().prepareOpen(indexInfo.getName()).execute().actionGet();
-
+            
         } else {
             logger.info("No settings to update. Skiping!");
         }
     }
-
-    private String generateSettings(Object obj) {
-        try {
-            Index annotation = obj.getClass().getAnnotation(Index.class);
-            String[] synonyms = (String[]) annotation.annotationType().getMethod("synonyms").invoke(annotation);
-            if (synonyms.length > 0 && !synonyms[0].equals("")) {
-                Map<String, Object> analysis = new TreeMap<>();
-                Map<String, Object> synonym = new TreeMap<>();
-                Map<String, Object> filterField = new TreeMap<>();
-                Map<String, Object> analyzerType = new TreeMap<>();
-                Map<String, Object> analyzerOptions = new TreeMap<>();
-                Map<String, Object> opt = new TreeMap<>();
-                analyzerOptions.put("filter", new String[]{"synonym"});
-                analyzerOptions.put("tokenizer", "whitespace");
-                analyzerType.put("synonym", analyzerOptions);
-                synonym.put("type", "synonym");
-                synonym.put("synonyms", synonyms);
-                filterField.put("synonym", synonym);
-                opt.put("analyzer", analyzerType);
-                opt.put("filter", filterField);
-                analysis.put("analysis", opt);
-                return new Gson().toJson(analysis);
+    
+    public String generateSettings(Object obj) {
+        Index annotation = obj.getClass().getAnnotation(Index.class);
+        Class<? extends Annotation> annotationType = annotation.annotationType();
+        List<String> ignored = Arrays.asList("name", "type");
+        Map<String, Object> result = null;
+        for (Method m : annotationType.getDeclaredMethods()) {
+            if (ignored.contains(m.getName())) {
+                continue;
             }
-        } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
-            logger.error("Error while parsing settings.", ex);
+            Object resultMap = null;
+            try {
+                Object res = m.invoke(annotation);
+                resultMap = generateMap(res);
+            } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+                logger.error("An error occurred while generating settings: ", ex);
+            }
+            if (resultMap != null) {
+                if (result == null) {
+                    result = new TreeMap<>();
+                }
+                result.put(m.getName(), resultMap);
+            }
         }
-        return null;
+        return new Gson().toJson(result);
     }
-
+    
+    private Object generateMap(Object annotation) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException {
+        Class<? extends Annotation> annotationType = ((Annotation) annotation).annotationType();
+        Map<String, Object> result = new TreeMap<>();
+        Map<String, Object> inner = new TreeMap<>();
+        for (Method m : annotationType.getDeclaredMethods()) {
+            Object res = m.invoke(annotation);
+            if (m.getName().equals("value") && res.equals("null")) {
+                return null;
+            }
+            if (m.getName().equals("name")) {
+                result.put(res.toString(), inner);
+            } else {
+                Class<? extends Object> aClass = res.getClass();
+                Class<?>[] interfaces = aClass.getInterfaces();
+                if (interfaces.length > 0 && interfaces[0].isAnnotation()) {
+                    inner.put(m.getName(), generateMap(res));
+                } else if (aClass.isArray() && aClass.getComponentType().isAnnotation()) {
+                    Object[] unknwArr = (Object[]) res;
+                    Map<String, Object> arr = new TreeMap<>();
+                    for (Object obj : unknwArr) {
+                        arr.putAll((Map<String, Object>) generateMap(obj));
+                    }
+                    inner.put(m.getName(), arr);
+                } else {
+                    if (!isEmpty(res)) {
+                        if (aClass.isEnum()) {
+                            inner.put(m.getName(), res.toString());
+                        } else {
+                            inner.put(m.getName(), res);
+                        }
+                    }
+                }
+            }
+        }
+        if (!result.containsValue(inner)) {
+            for (String key : inner.keySet()) {
+                result.put(key, inner.get(key));
+            }
+        }
+        return result;
+    }
+    
+    private boolean isEmpty(Object obj) {
+        return obj == null
+                || obj.equals("")
+                || obj.equals("null")
+                || (obj.getClass().isArray() ? ((Object[]) obj).length == 0 : false);
+    }
+    
 }
