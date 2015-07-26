@@ -1,4 +1,4 @@
-package com.arquivolivre.elastikyjay.annotations;
+package com.arquivolivre.elastikjay.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

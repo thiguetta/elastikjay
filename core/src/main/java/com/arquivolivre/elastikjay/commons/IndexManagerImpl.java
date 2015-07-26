@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.commons;
+package com.arquivolivre.elastikjay.commons;
 
 import com.arquivolivre.elastikyjay.annotations.Analyzer;
 import com.arquivolivre.elastikyjay.annotations.Ignored;
@@ -6,8 +6,8 @@ import com.arquivolivre.elastikyjay.annotations.Index;
 import com.arquivolivre.elastikyjay.annotations.Nested;
 import com.arquivolivre.elastikyjay.annotations.NotAnalyzed;
 import com.arquivolivre.elastikyjay.annotations.NotIndexed;
-import static com.arquivolivre.elastiky.commons.Types.isBasicType;
-import static com.arquivolivre.elastiky.commons.Types.isGeneric;
+import static com.arquivolivre.elastikjay.commons.Types.isBasicType;
+import static com.arquivolivre.elastikjay.commons.Types.isGeneric;
 import com.google.gson.Gson;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;

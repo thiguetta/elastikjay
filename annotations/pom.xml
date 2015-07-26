@@ -8,7 +8,7 @@
     </parent>
     <name>annotations</name>
     <groupId>com.arquivolivre.elastikyjay</groupId>
-    <artifactId>elastiky-jay-annotations</artifactId>
+    <artifactId>elastikjay-annotations</artifactId>
     <version>1.2.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <properties>

@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.commons;
+package com.arquivolivre.elastikjay.commons;
 
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.bulk.BulkResponse;

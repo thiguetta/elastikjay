@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.config;
+package com.arquivolivre.elastikjay.config;
 
 import java.io.IOException;
 import java.io.InputStream;

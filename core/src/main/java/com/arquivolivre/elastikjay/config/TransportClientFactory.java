@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.config;
+package com.arquivolivre.elastikjay.config;
 
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
