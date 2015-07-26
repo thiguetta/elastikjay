@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.annotations;
+package com.arquivolivre.elastikyjay.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -10,12 +10,12 @@ import java.lang.annotation.Target;
  * @author Thiago da Silva Gonzaga <thiagosg@sjrp.unesp.br>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE})
-public @interface Analysis {
+@Target(ElementType.TYPE)
+public @interface Index {
 
-    String value() default "";
+    String name();
 
-    Filter[] filter() default @Filter(name = "null");
+    String type();
 
-    Analyzer analyzer() default @Analyzer(name = "null");
+    Analysis analysis() default @Analysis("null");
 }

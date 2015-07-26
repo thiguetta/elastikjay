@@ -1,4 +1,4 @@
-package com.arquivolivre.elastiky.annotations;
+package com.arquivolivre.elastikyjay.annotations;
 
 /**
  *

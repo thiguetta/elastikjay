@@ -1,11 +1,11 @@
 package com.arquivolivre.elastiky.commons;
 
-import com.arquivolivre.elastiky.annotations.Analyzer;
-import com.arquivolivre.elastiky.annotations.Ignored;
-import com.arquivolivre.elastiky.annotations.Index;
-import com.arquivolivre.elastiky.annotations.Nested;
-import com.arquivolivre.elastiky.annotations.NotAnalyzed;
-import com.arquivolivre.elastiky.annotations.NotIndexed;
+import com.arquivolivre.elastikyjay.annotations.Analyzer;
+import com.arquivolivre.elastikyjay.annotations.Ignored;
+import com.arquivolivre.elastikyjay.annotations.Index;
+import com.arquivolivre.elastikyjay.annotations.Nested;
+import com.arquivolivre.elastikyjay.annotations.NotAnalyzed;
+import com.arquivolivre.elastikyjay.annotations.NotIndexed;
 import static com.arquivolivre.elastiky.commons.Types.isBasicType;
 import static com.arquivolivre.elastiky.commons.Types.isGeneric;
 import com.google.gson.Gson;
